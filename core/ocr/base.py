@@ -4,8 +4,10 @@ Abstract base class for OCR engines.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Tuple
-from PIL import Image
+from typing import TYPE_CHECKING, List, Tuple
+
+if TYPE_CHECKING:
+    from PIL import Image
 
 
 @dataclass
@@ -30,7 +32,7 @@ class BaseOCREngine(ABC):
         pass
 
     @abstractmethod
-    def extract_text(self, image: Image.Image) -> List[OCRResult]:
+    def extract_text(self, image: "Image.Image") -> List[OCRResult]:
         """
         Extract text and bounding boxes from an image.
 
