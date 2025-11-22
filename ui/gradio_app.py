@@ -1,9 +1,10 @@
 """
 Gradio web interface for document processing.
+Styled to match the original Jupyter notebook visualization.
 """
 
 import json
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 import gradio as gr
 
@@ -17,18 +18,20 @@ config = get_config()
 setup_logging(level=config.log.level, format_type="standard")
 logger = get_logger(__name__)
 
-# Color mapping for labels
+# Color mapping matching the notebook style
+# label2color = {'question': 'blue', 'answer': 'green', 'header': 'orange', 'other': 'violet'}
 LABEL_COLORS = {
-    "HEADER": (255, 165, 0),    # Orange
-    "QUESTION": (0, 0, 255),    # Blue
-    "ANSWER": (0, 255, 0),      # Green
-    "OTHER": (128, 128, 128),   # Gray
+    "HEADER": "orange",
+    "QUESTION": "blue",
+    "ANSWER": "green",
+    "OTHER": "violet",
 }
 
 
 def draw_entities(image: Image.Image, entities: list) -> Image.Image:
     """
     Draw bounding boxes and labels on image.
+    Matches the visualization style from the original notebook.
 
     Args:
         image: PIL Image
@@ -41,9 +44,18 @@ def draw_entities(image: Image.Image, entities: list) -> Image.Image:
     annotated = image.copy()
     draw = ImageDraw.Draw(annotated)
 
+    # Try to load default font
+    try:
+        font = ImageFont.load_default()
+    except:
+        font = None
+
+    # Track drawn boxes to avoid duplicates (like in notebook)
+    drawn_boxes = set()
+
     for entity in entities:
         bbox = entity.get("bbox", {})
-        label = entity.get("label", "OTHER")
+        label = entity.get("label", "OTHER").lower()
         text = entity.get("text", "")
         confidence = entity.get("confidence", 0)
 
@@ -53,23 +65,33 @@ def draw_entities(image: Image.Image, entities: list) -> Image.Image:
         x2 = bbox.get("x2", 0)
         y2 = bbox.get("y2", 0)
 
-        # Get color for label
-        color = LABEL_COLORS.get(label, LABEL_COLORS["OTHER"])
+        # Convert to tuple for set comparison
+        box_tuple = (x1, y1, x2, y2)
 
-        # Draw rectangle
+        # Skip if already drawn
+        if box_tuple in drawn_boxes:
+            continue
+
+        # Get color for label (matching notebook style)
+        color = LABEL_COLORS.get(label.upper(), "violet")
+
+        # Draw rectangle with width=2 (like notebook)
         draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
 
-        # Draw label
-        label_text = f"{label}: {confidence:.2f}"
-        draw.text((x1, y1 - 15), label_text, fill=color)
+        # Draw label text (like notebook: label at top-left with offset)
+        label_text = label
+        if font:
+            draw.text((x1 + 10, y1 - 10), text=label_text, fill=color, font=font)
+        else:
+            draw.text((x1 + 10, y1 - 10), text=label_text, fill=color)
+
+        # Add to drawn boxes
+        drawn_boxes.add(box_tuple)
 
     return annotated
 
 
-def process_document(
-    image,
-    confidence_threshold: float = 0.5
-):
+def process_document(image, confidence_threshold: float = 0.5):
     """
     Process uploaded document image.
 
@@ -78,10 +100,10 @@ def process_document(
         confidence_threshold: Minimum confidence for entities
 
     Returns:
-        Tuple of (annotated_image, json_results, csv_results)
+        Tuple of (annotated_image, json_results, status)
     """
     if image is None:
-        return None, "No image uploaded", ""
+        return None, "{}", "No image uploaded"
 
     try:
         # Get processor
@@ -107,32 +129,42 @@ def process_document(
 
         # Format outputs
         json_output = export_json(result)
-        csv_output = export_csv(result)
 
         # Summary
         summary = f"Found {len(entities)} entities in {result.get('processing_time_ms', 0):.2f}ms"
 
-        return annotated, json_output, csv_output, summary
+        return annotated, json_output, summary
 
     except Exception as e:
         logger.error(f"Processing error: {e}")
-        return None, f"Error: {str(e)}", "", f"Error: {str(e)}"
+        return None, "{}", f"Error: {str(e)}"
 
 
 def create_demo():
-    """Create the Gradio interface."""
-    with gr.Blocks(title="LayoutLMv3 Document Processor") as demo:
+    """Create the Gradio interface with notebook-like theme."""
+
+    # Simple, clean interface matching notebook style
+    with gr.Blocks(
+        title="LayoutLMv3 Document Processor",
+        theme=gr.themes.Default()
+    ) as demo:
+
         gr.Markdown("""
         # LayoutLMv3 Document Processing
 
-        Upload a document image to extract structured information (questions, answers, headers).
+        Upload a document image to extract structured information.
+
+        **Color Legend:**
+        - <span style="color:orange">■</span> **Header** - Document titles/headers
+        - <span style="color:blue">■</span> **Question** - Form field labels
+        - <span style="color:green">■</span> **Answer** - Form field values
+        - <span style="color:violet">■</span> **Other** - Other text
         """)
 
         with gr.Row():
-            with gr.Column(scale=1):
-                # Input
+            with gr.Column():
                 input_image = gr.Image(
-                    label="Upload Document",
+                    label="Input Document",
                     type="pil"
                 )
 
@@ -146,10 +178,9 @@ def create_demo():
 
                 process_btn = gr.Button("Process Document", variant="primary")
 
-            with gr.Column(scale=1):
-                # Output image
+            with gr.Column():
                 output_image = gr.Image(
-                    label="Annotated Document",
+                    label="Annotated Result",
                     type="pil"
                 )
 
@@ -159,42 +190,18 @@ def create_demo():
                 )
 
         with gr.Row():
-            with gr.Column():
-                # JSON output
-                json_output = gr.Code(
-                    label="JSON Results",
-                    language="json",
-                    lines=15
-                )
+            json_output = gr.Code(
+                label="JSON Output",
+                language="json",
+                lines=20
+            )
 
-            with gr.Column():
-                # CSV output
-                csv_output = gr.Code(
-                    label="CSV Results",
-                    language="plaintext",
-                    lines=15
-                )
-
-        # Download buttons
-        with gr.Row():
-            json_download = gr.File(label="Download JSON")
-            csv_download = gr.File(label="Download CSV")
-
-        # Process button action
+        # Process action
         process_btn.click(
             fn=process_document,
             inputs=[input_image, confidence_slider],
-            outputs=[output_image, json_output, csv_output, status_text]
+            outputs=[output_image, json_output, status_text]
         )
-
-        # Examples
-        gr.Markdown("### Color Legend")
-        gr.Markdown("""
-        - 🟠 **Orange**: Headers
-        - 🔵 **Blue**: Questions/Labels
-        - 🟢 **Green**: Answers/Values
-        - ⚪ **Gray**: Other
-        """)
 
     return demo
 
