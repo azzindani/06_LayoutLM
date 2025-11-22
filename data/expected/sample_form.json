@@ -1,0 +1,52 @@
+{
+  "status": "success",
+  "processing_time_ms": 1500.0,
+  "results": [
+    {
+      "page": 1,
+      "entities": [
+        {
+          "text": "Name:",
+          "label": "QUESTION",
+          "confidence": 0.95,
+          "bbox": {"x1": 50, "y1": 50, "x2": 120, "y2": 70}
+        },
+        {
+          "text": "John Doe",
+          "label": "ANSWER",
+          "confidence": 0.92,
+          "bbox": {"x1": 150, "y1": 50, "x2": 280, "y2": 70}
+        },
+        {
+          "text": "Date:",
+          "label": "QUESTION",
+          "confidence": 0.93,
+          "bbox": {"x1": 50, "y1": 100, "x2": 100, "y2": 120}
+        },
+        {
+          "text": "2024-01-15",
+          "label": "ANSWER",
+          "confidence": 0.91,
+          "bbox": {"x1": 150, "y1": 100, "x2": 280, "y2": 120}
+        },
+        {
+          "text": "Email:",
+          "label": "QUESTION",
+          "confidence": 0.94,
+          "bbox": {"x1": 50, "y1": 150, "x2": 110, "y2": 170}
+        },
+        {
+          "text": "john@example.com",
+          "label": "ANSWER",
+          "confidence": 0.89,
+          "bbox": {"x1": 150, "y1": 150, "x2": 320, "y2": 170}
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "model_version": "layoutlmv3-funsd-v1",
+    "ocr_engine": "easyocr",
+    "image_size": [600, 400]
+  }
+}
